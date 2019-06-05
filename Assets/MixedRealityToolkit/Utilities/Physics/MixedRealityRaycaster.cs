@@ -183,7 +183,7 @@ namespace Microsoft.MixedReality.Toolkit.Physics
                 for (int hitIdx = 0; hitIdx < hits.Length; hitIdx++)
                 {
                     RaycastHit hit = hits[hitIdx];
-                    if (hit.transform.gameObject.layer.IsInLayerMask(priorityLayers[layerMaskIdx]) &&
+                    if (hit.collider.gameObject.layer.IsInLayerMask(priorityLayers[layerMaskIdx]) &&
                         (minHit == null || hit.distance < minHit.Value.distance))
                     {
                         minHit = hit;

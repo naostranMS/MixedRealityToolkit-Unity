@@ -220,7 +220,7 @@ namespace Microsoft.MixedReality.Toolkit.Input
                 raycastHit = hit;
                 graphicsRaycastResult = default(RaycastResult);
 
-                hitObject = hit.transform.gameObject;
+                hitObject = hit.collider.gameObject;
                 hitPointOnObject = hit.point;
                 hitNormalOnObject = hit.normal;
 
