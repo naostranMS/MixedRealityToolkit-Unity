@@ -11,6 +11,7 @@ namespace Microsoft.MixedReality.Toolkit.Input
     /// </summary>
     public struct MixedRealityRaycastHit
     {
+        public Collider collider;
         public Vector3 point;
         public Vector3 normal;
         public Vector3 barycentricCoordinate;
@@ -27,6 +28,7 @@ namespace Microsoft.MixedReality.Toolkit.Input
             this.raycastValid = raycastValid;
             if (raycastValid)
             {
+                collider = hitInfo.collider;
                 point = hitInfo.point;
                 normal = hitInfo.normal;
                 barycentricCoordinate = hitInfo.barycentricCoordinate;
@@ -39,6 +41,7 @@ namespace Microsoft.MixedReality.Toolkit.Input
             }
             else
             {
+                collider = null;
                 point = Vector3.zero;
                 normal = Vector3.zero;
                 barycentricCoordinate = Vector3.zero;
