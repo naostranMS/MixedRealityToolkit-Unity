@@ -16,8 +16,8 @@ namespace Microsoft.MixedReality.Toolkit.Physics
             CompareRaycastsByLayerMaskPrioritization,
             CompareRaycastsBySortingLayer,
             CompareRaycastsBySortingOrder,
-            CompareRaycastsByCanvasDepth,
             CompareRaycastsByDistance,
+            CompareRaycastsByCanvasDepth,
         };
 
         public int Compare(ComparableRaycastResult left, ComparableRaycastResult right)
