@@ -110,9 +110,9 @@ namespace Microsoft.MixedReality.Toolkit.Input
             set { visibleSourcesCount = value; }
         }
 
-        private Vector3 targetPosition;
-        private Vector3 targetScale;
-        private Quaternion targetRotation;
+        protected Vector3 targetPosition;
+        protected Vector3 targetScale;
+        protected Quaternion targetRotation;
 
         #region IMixedRealityCursor Implementation
 
@@ -122,9 +122,18 @@ namespace Microsoft.MixedReality.Toolkit.Input
             get { return pointer; }
             set
             {
+                if (pointer?.BaseCursor == this)
+                {
+                    pointer.BaseCursor = null;
+                }
+
                 pointer = value;
-                pointer.BaseCursor = this;
-                RegisterManagers();
+                if (pointer != null)
+                {
+                    pointer.BaseCursor = this;
+                }
+
+                UpdateVisibleSourcesCount();
             }
         }
 
@@ -175,7 +184,7 @@ namespace Microsoft.MixedReality.Toolkit.Input
         /// <inheritdoc />
         public virtual void OnSourceDetected(SourceStateEventData eventData)
         {
-            if (eventData.Controller != null)
+            if (Pointer != null && eventData.Controller != null)
             {
                 for (int i = 0; i < eventData.InputSource.Pointers.Length; i++)
                 {
@@ -198,7 +207,7 @@ namespace Microsoft.MixedReality.Toolkit.Input
         /// <inheritdoc />
         public virtual void OnSourceLost(SourceStateEventData eventData)
         {
-            if (eventData.Controller != null)
+            if (Pointer != null && eventData.Controller != null)
             {
                 for (int i = 0; i < eventData.InputSource.Pointers.Length; i++)
                 {
@@ -238,7 +247,7 @@ namespace Microsoft.MixedReality.Toolkit.Input
         /// <inheritdoc />
         public virtual void OnBeforeFocusChange(FocusEventData eventData)
         {
-            if (Pointer.PointerId == eventData.Pointer.PointerId)
+            if (Pointer != null && Pointer.PointerId == eventData.Pointer.PointerId)
             {
                 TargetedObject = eventData.NewFocusedObject;
             }
@@ -254,11 +263,14 @@ namespace Microsoft.MixedReality.Toolkit.Input
         /// <inheritdoc />
         public virtual void OnPointerDown(MixedRealityPointerEventData eventData)
         {
-            foreach (var sourcePointer in eventData.InputSource.Pointers)
+            if (Pointer != null)
             {
-                if (sourcePointer.PointerId == Pointer.PointerId)
+                foreach (var sourcePointer in eventData.InputSource.Pointers)
                 {
-                    IsPointerDown = true;
+                    if (sourcePointer.PointerId == Pointer.PointerId)
+                    {
+                        IsPointerDown = true;
+                    }
                 }
             }
         }
@@ -272,11 +284,14 @@ namespace Microsoft.MixedReality.Toolkit.Input
         /// <inheritdoc />
         public virtual void OnPointerUp(MixedRealityPointerEventData eventData)
         {
-            foreach (var sourcePointer in eventData.InputSource.Pointers)
+            if (Pointer != null)
             {
-                if (sourcePointer.PointerId == Pointer.PointerId)
+                foreach (var sourcePointer in eventData.InputSource.Pointers)
                 {
-                    IsPointerDown = false;
+                    if (sourcePointer.PointerId == Pointer.PointerId)
+                    {
+                        IsPointerDown = false;
+                    }
                 }
             }
         }
@@ -284,6 +299,11 @@ namespace Microsoft.MixedReality.Toolkit.Input
         #endregion IMixedRealityPointerHandler Implementation
 
         #region MonoBehaviour Implementation
+        protected override void Start()
+        {
+            base.Start();
+            RegisterManagers();
+        }
 
         private void Update()
         {
@@ -295,6 +315,7 @@ namespace Microsoft.MixedReality.Toolkit.Input
         {
             // We don't call base.OnEnable because we handle registering the global listener a bit differently.
             OnCursorStateChange(CursorStateEnum.None);
+            UpdateVisibleSourcesCount();
         }
 
         protected override void OnDisable()
@@ -358,54 +379,58 @@ namespace Microsoft.MixedReality.Toolkit.Input
                 return;
             }
 
-            FocusDetails focusDetails;
-
-            if (!InputSystem.FocusProvider.TryGetFocusDetails(Pointer, out focusDetails))
+            if (Pointer.Result == null)
             {
                 if (InputSystem.FocusProvider.IsPointerRegistered(Pointer))
                 {
-                    Debug.LogError($"{name}: Unable to get focus details for {pointer.GetType().Name}!");
+                    Debug.LogError($"{name}: Unable to get pointer result for {pointer.GetType().Name}!");
                 }
 
                 return;
             }
 
-            GameObject newTargetedObject = InputSystem.FocusProvider.GetFocusedObject(Pointer);
-            Vector3 lookForward;
+            FocusDetails focusDetails = Pointer.Result.Details;
+
+            TargetedObject = InputSystem.FocusProvider.GetFocusedObject(Pointer);
 
             // Normalize scale on before update
             targetScale = Vector3.one;
 
-            // If no game object is hit, put the cursor at the default distance
-            if (newTargetedObject == null)
+            if (Pointer.CursorModifier != null)
             {
-                TargetedObject = null;
-                targetPosition = RayStep.GetPointByDistance(Pointer.Rays, defaultCursorDistance);
-                lookForward = -RayStep.GetDirectionByDistance(Pointer.Rays, defaultCursorDistance);
-                targetRotation = lookForward.magnitude > 0 ? Quaternion.LookRotation(lookForward, Vector3.up) : transform.rotation;
+                Pointer.CursorModifier.GetModifiedTransform(this, out targetPosition, out targetRotation, out targetScale);
             }
             else
             {
-                // Update currently targeted object
-                TargetedObject = newTargetedObject;
-
-                if (Pointer.CursorModifier != null)
+                Vector3 lookForward;
+                if (TargetedObject == null)
                 {
-                    Pointer.CursorModifier.GetModifiedTransform(this, out targetPosition, out targetRotation, out targetScale);
+                    // If no game object is hit, put the cursor at the default distance
+                    targetPosition = RayStep.GetPointByDistance(Pointer.Rays, defaultCursorDistance);
+                    lookForward = -RayStep.GetDirectionByDistance(Pointer.Rays, defaultCursorDistance);
                 }
                 else
                 {
                     // If no modifier is on the target, just use the hit result to set cursor position
                     // Get the look forward by using distance between pointer origin and target position
                     // (This may not be strictly accurate for extremely wobbly pointers, but it should produce usable results)
-                    float distanceToTarget = Vector3.Distance(Pointer.Rays[0].Origin, focusDetails.Point);
-                    lookForward = -RayStep.GetDirectionByDistance(Pointer.Rays, distanceToTarget);
+                    lookForward = -RayStep.GetDirectionByDistance(Pointer.Rays, focusDetails.RayDistance);
                     targetPosition = focusDetails.Point + (lookForward * surfaceCursorDistance);
-                    Vector3 lookRotation = Vector3.Slerp(focusDetails.Normal, lookForward, lookRotationBlend);
-                    targetRotation = Quaternion.LookRotation(lookRotation == Vector3.zero ? lookForward : lookRotation, Vector3.up);
+                    Vector3 blendedLookForward = Vector3.Slerp(focusDetails.Normal, lookForward, lookRotationBlend);
+                    if (blendedLookForward != Vector3.zero)
+                    {
+                        lookForward = blendedLookForward;
+                    }
                 }
+
+                targetRotation = lookForward.magnitude > 0 ? Quaternion.LookRotation(lookForward, Vector3.up) : transform.rotation;
             }
 
+            LerpToTargetTransform();
+        }
+
+        protected void LerpToTargetTransform()
+        {
             float deltaTime = useUnscaledTime
                 ? Time.unscaledDeltaTime
                 : Time.deltaTime;
@@ -414,6 +439,13 @@ namespace Microsoft.MixedReality.Toolkit.Input
             transform.position = Vector3.Lerp(transform.position, targetPosition, deltaTime / positionLerpTime);
             transform.localScale = Vector3.Lerp(transform.localScale, targetScale, deltaTime / scaleLerpTime);
             transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, deltaTime / rotationLerpTime);
+        }
+
+        protected void SnapToTargetTransform()
+        {
+            transform.position = targetPosition;
+            transform.localScale = targetScale;
+            transform.rotation = targetRotation;
         }
 
         /// <summary>
@@ -433,6 +465,33 @@ namespace Microsoft.MixedReality.Toolkit.Input
         public virtual void OnInputEnabled()
         {
             OnCursorStateChange(CursorStateEnum.None);
+            UpdateVisibleSourcesCount();
+        }
+
+        private void UpdateVisibleSourcesCount()
+        {
+            visibleSourcesCount = 0;
+            if (Pointer != null)
+            {
+                uint cursorPointerId = Pointer.PointerId;
+                foreach (IMixedRealityInputSource inputSource in InputSystem.DetectedInputSources)
+                {
+                    foreach (IMixedRealityPointer inputSourcePointer in inputSource.Pointers)
+                    {
+                        if (inputSourcePointer.PointerId == cursorPointerId)
+                        {
+                            ++visibleSourcesCount;
+                        }
+                    }
+                }
+            }
+
+            IsPointerDown = IsPointerDown && IsSourceDetected;
+
+            if (SetVisibilityOnSourceDetected)
+            {
+                SetVisibility(IsSourceDetected);
+            }
         }
 
         /// <summary>
