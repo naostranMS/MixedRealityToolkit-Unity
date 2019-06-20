@@ -17,6 +17,7 @@ namespace Microsoft.MixedReality.Toolkit.Input
         private MixedRealityInputAction holdAction = MixedRealityInputAction.None;
         private MixedRealityInputAction navigationAction = MixedRealityInputAction.None;
         private MixedRealityInputAction manipulationAction = MixedRealityInputAction.None;
+        private MixedRealityInputAction tapAction = MixedRealityInputAction.None;
         private bool useRailsNavigation = false;
         float holdStartDuration = 0.0f;
         float manipulationStartThreshold = 0.0f;
@@ -76,6 +77,9 @@ namespace Microsoft.MixedReality.Toolkit.Input
                             break;
                         case GestureInputType.Navigation:
                             navigationAction = gesture.Action;
+                            break;
+                        case GestureInputType.Tap:
+                            tapAction = gesture.Action;
                             break;
                     }
                 }
@@ -149,8 +153,15 @@ namespace Microsoft.MixedReality.Toolkit.Input
                                 InputSystem?.RaiseOnInputUp(InputSource, ControllerHandedness, Interactions[i].MixedRealityInputAction);
 
                                 // Stop gestures
-                                CompleteHoldGesture();
-                                CompleteManipulationNavigationGesture();
+                                if (holdInProgress || manipulationInProgress)
+                                {
+                                    CompleteHoldGesture();
+                                    CompleteManipulationNavigationGesture();
+                                }
+                                else
+                                {
+                                    InputSystem?.RaiseGestureCompleted(this, tapAction);
+                                }
                             }
                         }
                         else if (Interactions[i].BoolData)
