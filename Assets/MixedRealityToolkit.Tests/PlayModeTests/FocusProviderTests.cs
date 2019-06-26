@@ -61,6 +61,16 @@ namespace Microsoft.MixedReality.Toolkit.Tests
             Assert.IsTrue(inputSystem.GazeProvider.GazePointer.IsInteractionEnabled, "Gaze cursor should be visible after select command");
         }
 
+        [UnityTest]
+        public IEnumerator TestRaycastPrioritization()
+        {
+            IMixedRealityFocusProvider focusProvider;
+            MixedRealityServiceRegistry.TryGetService(out focusProvider);
+            Assert.IsNotNull(focusProvider, "FocusProvider is null!");
+
+            yield return null;
+        }
+
         [SetUp]
         public void SetupMrtk()
         {
