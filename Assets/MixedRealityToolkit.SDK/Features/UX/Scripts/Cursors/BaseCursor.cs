@@ -398,40 +398,39 @@ namespace Microsoft.MixedReality.Toolkit.Input
                 return;
             }
 
-            GameObject newTargetedObject = InputSystem.FocusProvider.GetFocusedObject(Pointer);
-            Vector3 lookForward;
+            TargetedObject = InputSystem.FocusProvider.GetFocusedObject(Pointer);
 
             // Normalize scale on before update
             targetScale = Vector3.one;
 
-            // If no game object is hit, put the cursor at the default distance
-            if (newTargetedObject == null)
+            if (Pointer.CursorModifier != null)
             {
-                TargetedObject = null;
-                targetPosition = RayStep.GetPointByDistance(Pointer.Rays, defaultCursorDistance);
-                lookForward = -RayStep.GetDirectionByDistance(Pointer.Rays, defaultCursorDistance);
-                targetRotation = lookForward.magnitude > 0 ? Quaternion.LookRotation(lookForward, Vector3.up) : transform.rotation;
+                Pointer.CursorModifier.GetModifiedTransform(this, out targetPosition, out targetRotation, out targetScale);
             }
             else
             {
-                // Update currently targeted object
-                TargetedObject = newTargetedObject;
-
-                if (Pointer.CursorModifier != null)
+                Vector3 lookForward;
+                if (TargetedObject == null)
                 {
-                    Pointer.CursorModifier.GetModifiedTransform(this, out targetPosition, out targetRotation, out targetScale);
+                    // If no game object is hit, put the cursor at the default distance
+                    targetPosition = RayStep.GetPointByDistance(Pointer.Rays, defaultCursorDistance);
+                    lookForward = -RayStep.GetDirectionByDistance(Pointer.Rays, defaultCursorDistance);
                 }
                 else
                 {
                     // If no modifier is on the target, just use the hit result to set cursor position
                     // Get the look forward by using distance between pointer origin and target position
                     // (This may not be strictly accurate for extremely wobbly pointers, but it should produce usable results)
-                    float distanceToTarget = Vector3.Distance(Pointer.Rays[0].Origin, focusDetails.Point);
-                    lookForward = -RayStep.GetDirectionByDistance(Pointer.Rays, distanceToTarget);
+                    lookForward = -RayStep.GetDirectionByDistance(Pointer.Rays, focusDetails.RayDistance);
                     targetPosition = focusDetails.Point + (lookForward * surfaceCursorDistance);
-                    Vector3 lookRotation = Vector3.Slerp(focusDetails.Normal, lookForward, lookRotationBlend);
-                    targetRotation = Quaternion.LookRotation(lookRotation == Vector3.zero ? lookForward : lookRotation, Vector3.up);
+                    Vector3 blendedLookForward = Vector3.Slerp(focusDetails.Normal, lookForward, lookRotationBlend);
+                    if (blendedLookForward != Vector3.zero)
+                    {
+                        lookForward = blendedLookForward;
+                    }
                 }
+
+                targetRotation = lookForward.magnitude > 0.0f ? Quaternion.LookRotation(lookForward, Vector3.up) : transform.rotation;
             }
 
             LerpToTargetTransform();
