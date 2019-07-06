@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
+﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using Microsoft.MixedReality.Toolkit.Physics;
@@ -132,9 +132,9 @@ namespace Microsoft.MixedReality.Toolkit.Input
             set { visibleSourcesCount = value; }
         }
 
-        private Vector3 targetPosition;
-        private Vector3 targetScale;
-        private Quaternion targetRotation;
+        protected Vector3 targetPosition;
+        protected Vector3 targetScale;
+        protected Quaternion targetRotation;
 
         #region IMixedRealityCursor Implementation
 
@@ -434,6 +434,11 @@ namespace Microsoft.MixedReality.Toolkit.Input
                 }
             }
 
+            LerpToTargetTransform();
+        }
+
+        protected void LerpToTargetTransform()
+        {
             float deltaTime = useUnscaledTime
                 ? Time.unscaledDeltaTime
                 : Time.deltaTime;
@@ -442,6 +447,13 @@ namespace Microsoft.MixedReality.Toolkit.Input
             transform.position = Vector3.Lerp(transform.position, targetPosition, deltaTime / positionLerpTime);
             transform.localScale = Vector3.Lerp(transform.localScale, targetScale, deltaTime / scaleLerpTime);
             transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, deltaTime / rotationLerpTime);
+        }
+
+        protected void SnapToTargetTransform()
+        {
+            transform.position = targetPosition;
+            transform.localScale = targetScale;
+            transform.rotation = targetRotation;
         }
 
         /// <summary>
