@@ -293,16 +293,23 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.Facades
 
             inspectorTypeLookup.Clear();
 
-            var typesWithMyAttribute =
-                 from assembly in AppDomain.CurrentDomain.GetAssemblies().AsParallel()
-                 from classType in assembly.GetTypes()
-                 let attribute = classType.GetCustomAttribute<MixedRealityServiceInspectorAttribute>(true)
-                 where attribute != null
-                 select new { ClassType = classType, Attribute = attribute };
-
-            foreach (var result in typesWithMyAttribute)
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
-                inspectorTypeLookup.Add(result.Attribute.ServiceType, result.ClassType);
+                try
+                {
+                    foreach (var classType in assembly.GetTypes())
+                    {
+                        var attribute = classType.GetCustomAttribute<MixedRealityServiceInspectorAttribute>(true);
+                        if (attribute != null)
+                        {
+                            inspectorTypeLookup.Add(attribute.ServiceType, classType);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError("Failed to load assembly [" + assembly.FullName + "]: " + ex);
+                }
             }
 
             initializedServiceInspectorLookup = true;
